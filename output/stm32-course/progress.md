@@ -4,7 +4,7 @@
 
 | Lab | เนื้อหา | Mock/ตรวจโค้ด | Hardware | หลักฐาน/ปัญหา |
 |---|---|---|---|---|
-| Lab01_LED | พร้อมเรียน | ยังไม่ทดสอบ | ยังไม่ทดสอบ | — |
+| Lab01_LED | ผ่าน: GPIO, HAL, register, non-blocking timing และ SysTick | ตรวจ HAL/ODR/BSRR, bit masking และ SysTick ผ่าน | LD2 PA5 กระพริบที่ช่วง 100/500/1000 ms ตามการสังเกต | NUCLEO-F410RB, STM32CubeIDE; SystemCoreClock=84 MHz, LOAD=83999, CTRL[2:0]=7; ยังไม่มีค่าคาบจากเครื่องมือวัด |
 | Lab02_Button | พร้อมเรียน | ยังไม่ทดสอบ | ยังไม่ทดสอบ | — |
 | Lab03_UART | พร้อมเรียน | ยังไม่ทดสอบ | ยังไม่ทดสอบ | — |
 | Lab04_PWM | พร้อมเรียน | ยังไม่ทดสอบ | ยังไม่ทดสอบ | — |

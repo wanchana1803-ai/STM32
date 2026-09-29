@@ -24,6 +24,8 @@ Quadrature encoder ให้ A และ B เหลื่อมเฟสกั�
 
 SMCR encoder mode; CCMR input mapping/filter; CCER polarity; CNT count/direction; ARR wrap range
 
+ดู input mapping, filter และการจัดการ counter wrap ใน [REGISTER_GUIDE.md](REGISTER_GUIDE.md)
+
 ## ลงมือทีละขั้น
 
 1. ยืนยันชนิด encoder และแรงดัน output ก่อนต่อ A/B

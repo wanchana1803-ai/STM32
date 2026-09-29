@@ -24,6 +24,8 @@ GPIO ไม่ใช่แหล่งจ่ายมอเตอร์ ต้�
 
 TIM PWM/CCR/MOE และ GPIO driver enable; firmware state/watchdog เป็นอีกชั้น ไม่ได้เกิดเองจาก CubeMX
 
+ดู register ของ PWM, safe state และ watchdog ใน [REGISTER_GUIDE.md](REGISTER_GUIDE.md)
+
 ## ลงมือทีละขั้น
 
 1. ทดสอบช่อง PWM ด้วย LED/logic analyzer ก่อนต่อภาคกำลัง

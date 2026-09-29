@@ -26,6 +26,8 @@ Lab เดี่ยวใช้ TIM5 Internal Clock, Counter Up; ตัวอย
 
 PSC แบ่ง clock; ARR กำหนดปลาย count; CNT ค่าปัจจุบัน; EGR โหลดค่าผ่าน update; SR.UIF ระบุ update
 
+ดูสูตรคาบ update และขั้นตรวจ counter ใน [REGISTER_GUIDE.md](REGISTER_GUIDE.md)
+
 ## ลงมือทีละขั้น
 
 1. เขียนสูตร PSC/ARR และตรวจ clock tree ก่อน generate

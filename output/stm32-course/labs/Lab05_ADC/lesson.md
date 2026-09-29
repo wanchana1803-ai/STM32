@@ -24,6 +24,8 @@ ADC 12 บิตให้ raw 0–4095 การประมาณแรงด�
 
 ADC CR1/CR2 เลือก mode/start; SMPR เลือก sampling time; SQR เลือกลำดับ channel; SR/DR แสดงสถานะ/ผล
 
+ดู sequence, sampling time และขั้นตรวจค่า ADC ใน [REGISTER_GUIDE.md](REGISTER_GUIDE.md)
+
 ## ลงมือทีละขั้น
 
 1. วัด VREF/ไฟ analog และตรวจขอบเขตแรงดันก่อนต่อ potentiometer

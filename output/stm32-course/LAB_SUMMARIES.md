@@ -4,16 +4,16 @@
 
 | Lab | เนื้อหา | สรุปและบันทึกผล |
 |---|---|---|
-| Lab01_LED | [บทเรียน](labs/Lab01_LED/lesson.md) | [สรุป](labs/Lab01_LED/summary.md) |
-| Lab02_Button | [บทเรียน](labs/Lab02_Button/lesson.md) | [สรุป](labs/Lab02_Button/summary.md) |
-| Lab03_UART | [บทเรียน](labs/Lab03_UART/lesson.md) | [สรุป](labs/Lab03_UART/summary.md) |
-| Lab04_PWM | [บทเรียน](labs/Lab04_PWM/lesson.md) | [สรุป](labs/Lab04_PWM/summary.md) |
-| Lab05_ADC | [บทเรียน](labs/Lab05_ADC/lesson.md) | [สรุป](labs/Lab05_ADC/summary.md) |
-| Lab06_Timer | [บทเรียน](labs/Lab06_Timer/lesson.md) | [สรุป](labs/Lab06_Timer/summary.md) |
-| Lab07_Interrupt | [บทเรียน](labs/Lab07_Interrupt/lesson.md) | [สรุป](labs/Lab07_Interrupt/summary.md) |
-| Lab08_I2C_OLED | [บทเรียน](labs/Lab08_I2C_OLED/lesson.md) | [สรุป](labs/Lab08_I2C_OLED/summary.md) |
-| Lab09_Encoder | [บทเรียน](labs/Lab09_Encoder/lesson.md) | [สรุป](labs/Lab09_Encoder/summary.md) |
-| Lab10_PWM_Motor | [บทเรียน](labs/Lab10_PWM_Motor/lesson.md) | [สรุป](labs/Lab10_PWM_Motor/summary.md) |
+| Lab01_LED | [บทเรียน](labs/Lab01_LED/lesson.md) · [คู่มือ Register](labs/Lab01_LED/REGISTER_GUIDE.md) · [รายงานทดลอง](labs/Lab01_LED/EXPERIMENT_REPORT.md) | [สรุป](labs/Lab01_LED/summary.md) |
+| Lab02_Button | [บทเรียน](labs/Lab02_Button/lesson.md) · [คู่มือ Register](labs/Lab02_Button/REGISTER_GUIDE.md) | [สรุป](labs/Lab02_Button/summary.md) |
+| Lab03_UART | [บทเรียน](labs/Lab03_UART/lesson.md) · [คู่มือ Register](labs/Lab03_UART/REGISTER_GUIDE.md) | [สรุป](labs/Lab03_UART/summary.md) |
+| Lab04_PWM | [บทเรียน](labs/Lab04_PWM/lesson.md) · [คู่มือ Register](labs/Lab04_PWM/REGISTER_GUIDE.md) | [สรุป](labs/Lab04_PWM/summary.md) |
+| Lab05_ADC | [บทเรียน](labs/Lab05_ADC/lesson.md) · [คู่มือ Register](labs/Lab05_ADC/REGISTER_GUIDE.md) | [สรุป](labs/Lab05_ADC/summary.md) |
+| Lab06_Timer | [บทเรียน](labs/Lab06_Timer/lesson.md) · [คู่มือ Register](labs/Lab06_Timer/REGISTER_GUIDE.md) | [สรุป](labs/Lab06_Timer/summary.md) |
+| Lab07_Interrupt | [บทเรียน](labs/Lab07_Interrupt/lesson.md) · [คู่มือ Register](labs/Lab07_Interrupt/REGISTER_GUIDE.md) | [สรุป](labs/Lab07_Interrupt/summary.md) |
+| Lab08_I2C_OLED | [บทเรียน](labs/Lab08_I2C_OLED/lesson.md) · [คู่มือ Register](labs/Lab08_I2C_OLED/REGISTER_GUIDE.md) | [สรุป](labs/Lab08_I2C_OLED/summary.md) |
+| Lab09_Encoder | [บทเรียน](labs/Lab09_Encoder/lesson.md) · [คู่มือ Register](labs/Lab09_Encoder/REGISTER_GUIDE.md) | [สรุป](labs/Lab09_Encoder/summary.md) |
+| Lab10_PWM_Motor | [บทเรียน](labs/Lab10_PWM_Motor/lesson.md) · [คู่มือ Register](labs/Lab10_PWM_Motor/REGISTER_GUIDE.md) | [สรุป](labs/Lab10_PWM_Motor/summary.md) |
 
 ## Lab01_LED
 

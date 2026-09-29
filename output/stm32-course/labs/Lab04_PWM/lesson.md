@@ -24,6 +24,8 @@
 
 TIM PSC/ARR คุมความถี่; CCRx คุม compare; CCMRx เลือก PWM; CCER เปิด channel; CR1 เปิด timer; TIM1 ต้องเปิด BDTR.MOE
 
+ดูสูตร clock ฟิลด์ PWM และขั้นตรวจ output ใน [REGISTER_GUIDE.md](REGISTER_GUIDE.md)
+
 ## ลงมือทีละขั้น
 
 1. คำนวณ f_TIM จาก clock tree ไม่ใช้ SYSCLK แทนโดยไม่ตรวจ

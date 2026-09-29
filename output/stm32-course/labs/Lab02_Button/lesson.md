@@ -26,6 +26,8 @@ Input ที่ไม่มี pull อาจลอย ปุ่มต่อ GND
 
 GPIO IDR อ่านค่าขา; PUPDR เลือก pull-up; MODER=00 เลือก input; debounce เป็น logic เวลาใน application
 
+ดูตำแหน่งบิต วิธีอ่าน SFRs และขั้นตรวจปุ่มจริงใน [REGISTER_GUIDE.md](REGISTER_GUIDE.md)
+
 ## ลงมือทีละขั้น
 
 1. ต่อปุ่ม GND และเปิด pull-up ตามวงจรที่ตรวจจริง

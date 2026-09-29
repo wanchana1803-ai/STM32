@@ -24,6 +24,8 @@ UART ต้องตกลง baud rate, data bits, parity และ stop bits �
 
 RCC เปิด USART clock; GPIO AFR/MODER เลือก AF; USART BRR กำหนด baud; CR1 เปิด transmitter/receiver; SR/DR ใช้ status/data ตาม RM0401
 
+ดู flag รับส่ง error และลำดับตรวจใน [REGISTER_GUIDE.md](REGISTER_GUIDE.md)
+
 ## ลงมือทีละขั้น
 
 1. เชื่อม TX/RX ไขว้และ GND ด้วย interface ที่เข้ากันได้ ปิด serial monitor อื่นก่อนเปิดพอร์ต

@@ -24,6 +24,8 @@ EXTI จัดการขอบสัญญาณภายนอก ส่ว�
 
 TIM DIER.UIE เปิด update interrupt; SR.UIF pending; NVIC enable/priority; EXTI/SYSCFG route และ edge สำหรับขาภายนอก
 
+ดูเส้นทาง event ถึง ISR และวิธีตรวจ pending ใน [REGISTER_GUIDE.md](REGISTER_GUIDE.md)
+
 ## ลงมือทีละขั้น
 
 1. ตรวจ generated IRQ handler และ breakpoint ใน callback ชั่วคราว

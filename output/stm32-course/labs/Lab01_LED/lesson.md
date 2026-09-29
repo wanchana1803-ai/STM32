@@ -26,6 +26,8 @@ SysTick เป็นตัวนับถอยหลัง 24 บิต ถ้�
 
 RCC AHB1ENR เปิด GPIO clock; MODER เลือก output; OTYPER/PUPDR/OSPEEDR กำหนดลักษณะขา; ODR/BSRR เขียนค่า output
 
+อ่านคำอธิบาย bit field, address, สูตร mask และตัวอย่างครบใน [REGISTER_GUIDE.md](REGISTER_GUIDE.md)
+
 ## ลงมือทีละขั้น
 
 1. สร้างโปรเจกต์ CubeMX ตั้ง LED label และ Generate จากนั้น build โปรแกรมเดิมให้ผ่านก่อนเพิ่มโค้ด

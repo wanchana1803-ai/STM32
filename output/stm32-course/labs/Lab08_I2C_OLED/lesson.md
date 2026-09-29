@@ -24,6 +24,8 @@ I2C ใช้ SCL/SDA แบบ open-drain พร้อม pull-up ตามแ�
 
 GPIO AF/open-drain; I2C CR/SR/DR และ timing ของ instance; controller OLED มีคำสั่งอีกชุดแยกจาก peripheral MCU
 
+ดูลำดับ START/address/data/STOP และ error flags ใน [REGISTER_GUIDE.md](REGISTER_GUIDE.md)
+
 ## ลงมือทีละขั้น
 
 1. บันทึกรุ่นจอ/controller/address จากเอกสารหรือการตรวจที่มีหลักฐาน

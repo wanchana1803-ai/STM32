@@ -1,6 +1,6 @@
 # เริ่มเรียน STM32F410RB ด้วย STM32CubeMX
 
-อ่าน [Roadmap](ROADMAP.md) และเลือกบทจาก [สารบัญครบ 10 Lab](LAB_SUMMARIES.md) คู่บท Python GUI อยู่ในโฟลเดอร์ Antigravity-Tkinter
+อ่าน [Roadmap](ROADMAP.md), เลือกบทจาก [สารบัญครบ 10 Lab](LAB_SUMMARIES.md) และใช้ [คู่มือ Register ครบ 10 Lab](REGISTER_GUIDE_ALL_LABS.md) ระหว่าง Debug คู่บท Python GUI อยู่ในโฟลเดอร์ Antigravity-Tkinter
 
 ## เตรียมข้อมูลครั้งเดียว
 
