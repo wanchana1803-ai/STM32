@@ -1,0 +1,416 @@
+# สรุปสิ่งที่ต้องรู้ครบ 10 Lab
+STM32F410RB + STM32CubeMX + Python GUI ด้วย Tkinter
+
+สรุปความรู้เพื่อทบทวน ไม่ใช่ผลทดลองจริง ยังไม่มีการรับรองการทำงานกับบอร์ด
+
+
+# สรุป Lab01_LED — STM32
+
+## ความรู้ที่ต้องจำ
+
+GPIO กำหนดระดับขา ส่วน timebase กำหนดเวลา การใช้ elapsed time ทำให้ main ทำงานอื่นได้ BSRR ใช้ set/reset เฉพาะบิต ส่วน toggle ต้องระวังผู้เขียนขาร่วมกัน
+
+**CubeMX:** เลือกขา LED ที่ตรวจแล้วเป็น GPIO_Output และ User Label เป็น LED; Output Push Pull, No Pull, Low speed; กำหนด initial level ตาม polarity เพื่อให้เริ่มดับ ตั้ง SYS Debug เป็น Serial Wire เพื่อคงขา debug ไว้ ตรวจ clock และคง HAL timebase เดิม
+
+**รีจิสเตอร์สำคัญ:** RCC AHB1ENR เปิด GPIO clock; MODER เลือก output; OTYPER/PUPDR/OSPEEDR กำหนดลักษณะขา; ODR/BSRR เขียนค่า output
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** LED ไม่ติด: ตรวจขา/polarity/clock; เวลาเพี้ยน: ตรวจ clock/timebase; regenerate แล้วโค้ดหาย: ตรวจ USER CODE blocks
+
+## ก่อนถือว่าจบ Lab
+
+- เริ่มต้นขาตรงกับ initial level ที่ตั้งและ LED ไม่กลับ polarity ผิด
+- 100/500/1000 ms ให้คาบประมาณ 200/1000/2000 ms โดยระบุเครื่องมือและความคลาดเคลื่อน
+- เพิ่มการอ่านปุ่มหรือ counter ใน main แล้วไม่ติดค้างจาก delay
+
+
+# สรุป Lab01_LED — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+สร้างหน้าต่างควบคุม LED แบบ mock และแยกค่าที่ขอออกจากค่าที่อุปกรณ์ยืนยัน
+
+Tkinter callback สร้างคำสั่ง ส่วน ACK ยืนยัน state การเปลี่ยนสีปุ่มอย่างเดียวไม่พิสูจน์ว่า LED บนบอร์ดติด
+
+**Widgets/เครื่องมือ:** ttk.Frame, Label, Button, StringVar และ Canvas วงกลมสถานะ
+
+**คำถามทบทวน:** ถ้าได้รับ ACK ของคำสั่ง OFF หลังคำสั่ง ON ล่าสุดควรทำอย่างไร?
+
+**แนวตอบ:** เทียบ session/id กับ pending และไม่ใช้ ACK เก่าอัปเดตคำสั่งล่าสุด
+
+## Checklist ก่อนจบ
+
+- กด ON ได้ pending ก่อน confirmed ON
+- mock ไม่ตอบต้องขึ้น timeout ไม่ขึ้นสำเร็จ
+- ACK id เก่าไม่เปลี่ยนสถานะคำสั่งปัจจุบัน
+
+
+
+# สรุป Lab02_Button — STM32
+
+## ความรู้ที่ต้องจำ
+
+ปุ่มให้ระดับสัญญาณ แต่โปรแกรมต้องสร้างเหตุการณ์จากขอบ Debounce ลดผลหน้าสัมผัสเด้ง โดยแลกกับเวลาในการตอบสนอง
+
+**CubeMX:** เลือก input pin ที่ว่างและตั้ง User Label เป็น BUTTON; ตัวอย่างนี้ปุ่มต่อ GND จึงใช้ Pull-up และ active-low ใช้ GPIO_Input ก่อน EXTI ขา LED ใช้ค่าจาก Lab01
+
+**รีจิสเตอร์สำคัญ:** GPIO IDR อ่านค่าขา; PUPDR เลือก pull-up; MODER=00 เลือก input; debounce เป็น logic เวลาใน application
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** ค่าลอย: ตรวจ pull/GND; นับซ้ำ: นับระดับแทน edge; ไม่ตอบกดเร็ว: debounce ยาวเกิน
+
+## ก่อนถือว่าจบ Lab
+
+- กด 20 ครั้งต้องเพิ่ม 20 ไม่เพิ่มซ้ำตอนค้าง
+- เปิดเครื่องพร้อมกดค้าง: ไม่ถือเป็นขอบกดใหม่ในตัวอย่างนี้จนปล่อยและกดอีกครั้ง
+- ทดลองกดเร็วกว่า debounce แล้วอธิบายเหตุการณ์ที่ถูกกรอง
+
+
+# สรุป Lab02_Button — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+แสดงสถานะและจำนวนกดที่ firmware ยืนยัน โดยไม่เดานับจากอัตรา refresh ของจอ
+
+GUI ใช้ stable state และ counter จาก firmware แยกเวลาได้รับข้อมูลจากเวลาเกิดเหตุการณ์ การแสดงซ้ำไม่ใช่การกดใหม่
+
+**Widgets/เครื่องมือ:** Label แสดง PRESSED/RELEASED, counter, event list และป้ายเวลาข้อมูลล่าสุด
+
+**คำถามทบทวน:** เหตุใดไม่ควรนับจำนวนกดจากจำนวนข้อความที่รับ?
+
+**แนวตอบ:** ข้อความอาจซ้ำ/หายและมี state refresh ต้องใช้ counter หรือ event identity ที่ firmware ส่ง
+
+## Checklist ก่อนจบ
+
+- ส่ง event เดิมซ้ำแล้ว count ไม่เพิ่มเอง
+- กดค้างแสดง state ค้างแต่ไม่เพิ่ม count
+- หยุด telemetry แล้วแสดง stale
+
+
+
+# สรุป Lab03_UART — STM32
+
+## ความรู้ที่ต้องจำ
+
+UART เป็น byte stream ไม่ได้แบ่งข้อความให้อัตโนมัติ ต้องออกแบบ framing, buffer, validation และ error recovery ก่อนเชื่อม GUI
+
+**CubeMX:** เลือก USART ที่ขา TX/RX ไม่ชนอุปกรณ์อื่น ตั้ง Asynchronous, 115200, 8 data bits, no parity, 1 stop bit, no flow control ตรวจ AF และ bus clock เปิด NVIC ของ USART เมื่อพัฒนา interrupt reception
+
+**รีจิสเตอร์สำคัญ:** RCC เปิด USART clock; GPIO AFR/MODER เลือก AF; USART BRR กำหนด baud; CR1 เปิด transmitter/receiver; SR/DR ใช้ status/data ตาม RM0401
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** อักขระเพี้ยน: baud/clock; ไม่มีข้อมูล: TX-RX/GND/AF/port; รับครั้งเดียว: ไม่ re-arm interrupt; GUI เปิด port ไม่ได้: มีโปรแกรมอื่นครอบครอง
+
+## ก่อนถือว่าจบ Lab
+
+- HELLO และ PING ได้ ACK ตรง session/id
+- แบ่ง frame หลายส่วนและส่งหลาย frame พร้อมกันได้ผลเท่ากัน
+- frame ยาว/เลขผิด/op ไม่รองรับไม่ล้น bufferและรับ frame ดีถัดไปได้
+
+
+# สรุป Lab03_UART — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+สร้าง transport Serial และ parser ที่ทดสอบได้โดยไม่มีหน้าต่าง
+
+แยก transport/parser/UI และใช้ queue เป็นขอบเขต thread timeout ช่วยให้ shutdown ได้ แต่ไม่ใช่ตัวจบ frame
+
+**Widgets/เครื่องมือ:** Combobox รายชื่อพอร์ต, baud display, Connect/Disconnect, Text log จำกัดขนาด
+
+**คำถามทบทวน:** read timeout คืน b"ACK,ab" มาแล้วควร parse ทันทีหรือไม่?
+
+**แนวตอบ:** ไม่ เก็บ bytes ต่อจนเจอ LF หรือเกินขอบเขต ห้ามตีความ timeout เป็นจบ frame
+
+## Checklist ก่อนจบ
+
+- partial/multiple/oversized frames กู้คืนได้
+- พอร์ตไม่อยู่/ถูกใช้แสดง error และ UI ยังปิดได้
+- connect-disconnect 10 ครั้งไม่มี worker หรือพอร์ตค้าง
+
+
+
+# สรุป Lab04_PWM — STM32
+
+## ความรู้ที่ต้องจำ
+
+PWM แยกความถี่ออกจาก duty ค่า compare มีความหมายตาม counting mode และ polarity จึงต้องวัดที่ขาจริง
+
+**CubeMX:** เลือก timer/channel ที่มี AF pin ว่าง ตั้ง Internal Clock, upcount, PWM Generation CHx และ PWM mode 1, active-high ตัวอย่าง f_TIM=16 MHz ใช้ PSC=15 ARR=999 Pulse=0 ได้ 1 kHz เปิด preload ตามที่จำเป็นและตรวจ pin output
+
+**รีจิสเตอร์สำคัญ:** TIM PSC/ARR คุมความถี่; CCRx คุม compare; CCMRx เลือก PWM; CCER เปิด channel; CR1 เปิด timer; TIM1 ต้องเปิด BDTR.MOE
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** ไม่มี output: channel/AF/MOE; duty ไม่ตรง: ARR+1 หรือ polarity; สะดุดเมื่อปรับ: preload/update timing
+
+## ก่อนถือว่าจบ Lab
+
+- 10/50/90% คงความถี่ 1 kHz ตาม clock สมมติ
+- ค่า -1/101 ถูกปฏิเสธ ไม่ wrap
+- 0/100% ให้ระดับปลายช่วงถูกต้องและ CCR อยู่ในช่วง register
+
+
+# สรุป Lab04_PWM — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+สร้าง slider ที่ไม่ยิงคำสั่งถี่เกินและแสดง requested/applied แยกกัน
+
+Slider เป็นแหล่งคำขอ ไม่ใช่ผลวัด ต้องจำกัดอัตราส่งและแสดงค่าที่ firmware ยืนยันแยกกัน
+
+**Widgets/เครื่องมือ:** ttk.Scale, Spinbox, Label percent, ป้าย pending/error
+
+**คำถามทบทวน:** เหตุใดไม่ส่งทุกครั้งที่ slider callback ถูกเรียก?
+
+**แนวตอบ:** ทำให้ UART/command queue ล้นและ ACK ล่าช้า ควร debounce/coalesce ค่าล่าสุด
+
+## Checklist ก่อนจบ
+
+- ลากเร็วแล้ว queue ไม่โตไม่จำกัด
+- กรอกข้อความ/101 แล้วไม่ส่ง
+- ACK ช้าทำให้ requested ต่าง applied ได้โดย UI ไม่หลอก
+
+
+
+# สรุป Lab05_ADC — STM32
+
+## ความรู้ที่ต้องจำ
+
+ADC ให้ค่าดิจิทัลเทียบ reference การแปลงเป็นโวลต์ต้องรู้ VREF และความคลาดเคลื่อน การเฉลี่ยไม่แก้ calibration ผิด
+
+**CubeMX:** เลือก ADC1 channel ที่ตรง analog pin ตั้ง 12-bit, right alignment, single conversion, software trigger และ sampling time เหมาะกับ source impedance ตรวจ ADC clock limit ใน datasheet ตั้ง GPIO analog/no pull
+
+**รีจิสเตอร์สำคัญ:** ADC CR1/CR2 เลือก mode/start; SMPR เลือก sampling time; SQR เลือกลำดับ channel; SR/DR แสดงสถานะ/ผล
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** ค่านิ่ง 0: channel/pin/ground; noise: source/VREF/sample time; สเกลผิด: resolution/VREF
+
+## ก่อนถือว่าจบ Lab
+
+- raw อยู่ 0–4095; ค่ากลางประมาณครึ่ง full scale
+- timeout ไม่รายงาน raw=0 ว่าเป็นค่าที่วัดสำเร็จ
+- disconnect sensor แล้วไม่อ้างค่าที่ลอยเป็นแรงดันเชื่อถือได้
+
+
+# สรุป Lab05_ADC — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+แสดงตัวเลขและกราฟ bounded history พร้อม export CSV
+
+การเก็บ sample และวาดจอมีอัตราต่างกันได้ ต้องจำกัดหน่วยความจำและบันทึกหน่วย/ที่มาของข้อมูล
+
+**Widgets/เครื่องมือ:** Label raw/mV, Canvas graph, Pause/Resume, Export button
+
+**คำถามทบทวน:** ทำไมเวลา PC รับข้อมูลไม่เท่ากับเวลาที่ ADC sample?
+
+**แนวตอบ:** มีคิวและเวลาเดินทาง Serial ควรใช้ timestamp MCU เพื่อดูช่วง sampling และเก็บ received time แยก
+
+## Checklist ก่อนจบ
+
+- raw=0/2048/4095 แสดงถูก ไม่หารด้วยศูนย์ตอนกราฟมี sample เดียว
+- รับ 10000 samples แล้ว history ไม่เกิน 600
+- export เปิดอ่านกลับแล้วจำนวนแถว/หน่วยตรง
+
+
+
+# สรุป Lab06_Timer — STM32
+
+## ความรู้ที่ต้องจำ
+
+Timer ทำงานจาก hardware clock ส่วน main มาสังเกต flag การสังเกตช้าไม่ทำให้ได้จำนวนเหตุการณ์ครบเสมอ
+
+**CubeMX:** Lab เดี่ยวใช้ TIM5 Internal Clock, Counter Up; ตัวอย่าง f_TIM=16 MHz ตั้ง PSC=15999 ARR=999 ได้ update ทุก 1000 ms เริ่ม polling ก่อน; คง HAL timebase แยกไว้ และอย่าใช้ TIM5 ร่วม encoder ในโปรเจกต์รวมโดยไม่จัดสรรใหม่
+
+**รีจิสเตอร์สำคัญ:** PSC แบ่ง clock; ARR กำหนดปลาย count; CNT ค่าปัจจุบัน; EGR โหลดค่าผ่าน update; SR.UIF ระบุ update
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** CNT ไม่เดิน: CEN/clock; คาบสองเท่า: สับสน toggle กับ cycle; เปลี่ยน PSC แล้วไม่ทันที: ค่า buffered ยังไม่ latch
+
+## ก่อนถือว่าจบ Lab
+
+- CNT เดินและ wrap ที่ ARR
+- คาบตรงกับสูตรภายใต้ clock ที่วัด/ยืนยัน
+- อธิบายได้ว่าการ polling ช้าอาจรวมหลาย update เป็นหนึ่ง
+
+
+# สรุป Lab06_Timer — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+ตั้ง period และเปรียบเทียบ timestamp MCU กับ callback UI
+
+after จัดตาราง UI ไม่ได้แทน hardware timer การวิเคราะห์เวลาต้องรู้ว่า timestamp มาจากฝั่งใด
+
+**Widgets/เครื่องมือ:** Spinbox 10–5000 ms, Apply, labels requested/confirmed, ตาราง timestamp
+
+**คำถามทบทวน:** ถ้า UART รวม 10 timer updates เป็น telemetry เดียวควรคำนวณ period อย่างไร?
+
+**แนวตอบ:** ใช้ delta MCU time และ delta update_count ที่สอดคล้องกัน ไม่ถือว่าช่องว่างระหว่าง frame คือ period หนึ่งรอบ
+
+## Checklist ก่อนจบ
+
+- 10/1000/5000 ส่งได้และ 0/5001 ไม่ส่ง
+- old=0xFFFFFFF0,new=0x10 ได้ delta=32
+- UI delay ไม่ถูกบันทึกเป็น timer error ฝั่ง MCU โดยอัตโนมัติ
+
+
+
+# สรุป Lab07_Interrupt — STM32
+
+## ความรู้ที่ต้องจำ
+
+Interrupt แยกการรับเหตุการณ์จากงานหลัก ISR ที่สั้นช่วยจำกัด latency แต่ข้อมูลร่วมยังต้องออกแบบ ownership
+
+**CubeMX:** ใช้ timer จาก Lab06 เปิด NVIC timer interrupt ที่ตรง instance และตรวจ generated handler เรียก HAL_TIM_IRQHandler; สำหรับ EXTI เพิ่ม GPIO_EXTI ตาม edge/pull จริงและเลือก NVIC IRQ ที่ครอบคลุม pin
+
+**รีจิสเตอร์สำคัญ:** TIM DIER.UIE เปิด update interrupt; SR.UIF pending; NVIC enable/priority; EXTI/SYSCFG route และ edge สำหรับขาภายนอก
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** callback ไม่เข้า: NVIC/DIER/handler; ค้าง ISR: delay/printf; count หาย: reset แข่งกับ ISR
+
+## ก่อนถือว่าจบ Lab
+
+- เพิ่มจำนวน IRQ ได้แม้ main มีงานอื่นระยะสั้น
+- ไม่เกิด IRQ loop จาก pending ที่ไม่เคลียร์
+- counter wrap หรือ snapshot race มีวิธีจัดการที่อธิบายได้
+
+
+# สรุป Lab07_Interrupt — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+แสดง interrupt counters และ event stream โดยไม่ redraw จน UI ค้าง
+
+จำนวน interrupt จำนวน telemetry frame และจำนวนแถวบนจอเป็นคนละสิ่ง ต้องแยก counters และจำกัดคิว
+
+**Widgets/เครื่องมือ:** Treeview event log, counter, dropped-frame label, Clear View
+
+**คำถามทบทวน:** ถ้า irq_count เพิ่ม 100 แต่ GUI รับ 10 frame แปลว่าหาย 90 interrupt หรือไม่?
+
+**แนวตอบ:** ไม่จำเป็น firmware อาจรายงาน counter แบบ batch ต้องดู protocol/seq และความถี่ publish
+
+## Checklist ก่อนจบ
+
+- burst แล้วปุ่ม/ปิดหน้าต่างยังตอบสนอง
+- Clear View ไม่ทำให้ MCU counter เป็นศูนย์
+- frame drop แสดงตัวนับและค่าล่าสุดได้
+
+
+
+# สรุป Lab08_I2C_OLED — STM32
+
+## ความรู้ที่ต้องจำ
+
+I2C ACK ยืนยันการสื่อสารระดับ bus ไม่ยืนยันว่าจอวาดถูก ต้องตรวจทั้ง transport และ controller driver
+
+**CubeMX:** ยืนยัน OLED controller, ขนาด, address และแรงดันก่อน เลือก I2C instance ที่ใช้งานได้พร้อม SCL/SDA AF open-drain ตรวจ pull-up จริง เริ่ม Standard mode 100 kHz และ timing ตาม clock อย่านำ register ของ FMPI2C ปนกับ I2C ปกติ
+
+**รีจิสเตอร์สำคัญ:** GPIO AF/open-drain; I2C CR/SR/DR และ timing ของ instance; controller OLED มีคำสั่งอีกชุดแยกจาก peripheral MCU
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** ACK แต่จอมืด: init/controller/contrast; bus busy: pull-up/wiring; อักษรผิด: framebuffer/font/offset
+
+## ก่อนถือว่าจบ Lab
+
+- probe ACK กับ address ที่ถูกและ NACK กับ address ผิด
+- ส่งข้อความ 1 และ 20 ตัวอักษรได้โดยไม่ล้น
+- จอไม่อยู่แล้ว main/UART ยังทำงานและรายงาน error
+
+
+# สรุป Lab08_I2C_OLED — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+ส่งข้อความพร้อม validation และแสดงผลตอบจากการอัปเดตจอ
+
+Validate ให้ตรงกับความสามารถ firmware/font การมี preview ไม่แทนการตรวจจอจริงและ ACK ไม่รับรองคุณภาพภาพ
+
+**Widgets/เครื่องมือ:** Entry, character counter, Send, status และ mock preview
+
+**คำถามทบทวน:** ทำไม GUI พิมพ์ภาษาไทยได้แต่ยังไม่ส่งในรุ่นแรก?
+
+**แนวตอบ:** Tkinter รองรับไม่ได้หมายความว่า protocol/font/controller path พร้อม รุ่นแรกกำหนด ASCII ต้องขยายทั้งระบบก่อน
+
+## Checklist ก่อนจบ
+
+- ข้อความปกติส่งได้; ภาษาไทย/comma/newline ถูกปฏิเสธตามรุ่น protocol
+- ERR HW แสดง error ไม่แสดง success
+- preview ไม่ถูกนำไปอ้างว่าฮาร์ดแวร์แสดงแล้ว
+
+
+
+# สรุป Lab09_Encoder — STM32
+
+## ความรู้ที่ต้องจำ
+
+Count เป็นตำแหน่งเชิงดิจิทัล การคำนวณความเร็วต้องรู้เวลา ระยะต่อ count และแก้ counter wrap
+
+**CubeMX:** ใช้ timer รองรับ encoder เช่น TIM5 ตั้ง Encoder Mode TI1 and TI2 ตรวจ CH1/CH2 AF คู่จริง, polarity, input filter และ period ตามความกว้าง counter ย้าย timer งานอื่นถ้าซ้ำ เริ่ม PSC=0
+
+**รีจิสเตอร์สำคัญ:** SMCR encoder mode; CCMR input mapping/filter; CCER polarity; CNT count/direction; ARR wrap range
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** count กลับด้าน: A/B/polarity; count สั่น: noise/filter; RPM ผิด 4 เท่า: decoding multiplier
+
+## ก่อนถือว่าจบ Lab
+
+- หนึ่งรอบได้ counts/rev ที่อธิบายได้ทั้งสองทิศ
+- ข้าม wrap แล้วยังได้ delta ถูก
+- สาย A/B หลวมไม่ถูกแสดงว่าเป็น RPM เชื่อถือได้
+
+
+# สรุป Lab09_Encoder — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+แสดงตำแหน่งทิศทางและความเร็วที่มีเงื่อนไข calibration ชัดเจน
+
+RPM ต้องมี calibration และเวลาอ้างอิง ไม่ใช่เพียงนำ counter ไปใส่กราฟ การ reconnect ทำให้ baseline เดิมใช้ไม่ได้
+
+**Widgets/เครื่องมือ:** count label, direction indicator, counts/rev input, RPM label และ calibration status
+
+**คำถามทบทวน:** encoder knob หมุนด้วยมือใช้แสดง RPM มอเตอร์ได้หรือไม่?
+
+**แนวตอบ:** ไม่ได้ ถ้าไม่ได้วัดเพลามอเตอร์นั้น ต้องแยกเป็น input knob และ shaft feedback
+
+## Checklist ก่อนจบ
+
+- 100 counts ใน 500 ms ที่ 400 counts/rev ได้ 30 RPM
+- delta_t=0 คืน unavailable
+- session ใหม่ต้องรอ sample ที่สองก่อนคำนวณ
+
+
+
+# สรุป Lab10_PWM_Motor — STM32
+
+## ความรู้ที่ต้องจำ
+
+การควบคุมมอเตอร์ต้องมี output state ที่แน่นอนและทางหยุดใน firmware GUI เป็นผู้ขอคำสั่ง ไม่ควรเป็นชั้นเดียวที่ดูแล link loss
+
+**CubeMX:** ยืนยัน motor DC brushed/driver/แหล่งจ่ายและ stop truth table ก่อน กำหนด PWM channel, enable pin และ initial output ให้หยุดตั้งแต่ boot คง SWD/UART และจัด timer ของ encoder/timebase ไม่ให้ชน เลือก PWM frequency ตาม driver จริง
+
+**รีจิสเตอร์สำคัญ:** TIM PWM/CCR/MOE และ GPIO driver enable; firmware state/watchdog เป็นอีกชั้น ไม่ได้เกิดเองจาก CubeMX
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** boot กระตุก: pin default/driver enable; STOP ช้า: blocking loop/TX queue; duty เปลี่ยนแต่ RPM ไม่ตาม: โหลด/ไฟ/feedback
+
+## ก่อนถือว่าจบ Lab
+
+- boot/reset/reconnect ไม่หมุนเองและต้อง ARM ใหม่
+- หยุด PING เกิน watchdog แล้ว firmware หยุดแม้ GUI ค้าง
+- STOP ยกเลิก ramp ไม่รอให้ duty ลดช้า ๆ
+- OLED/UART error ไม่ทำให้ main หยุดตรวจ watchdog
+
+
+# สรุป Lab10_PWM_Motor — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+สร้างหน้าควบคุมมอเตอร์ที่ state ชัดและไม่ replay คำสั่งหลังต่อใหม่
+
+State ที่ GUI แสดงต้องตรงกับหลักฐาน การสูญเสีย link ทำให้ผลทางกายภาพไม่ทราบ และ firmware ต้องหยุดเองตาม watchdog
+
+**Widgets/เครื่องมือ:** ARM, STOP เด่น, duty slider, requested/applied labels, link/fault state และ heartbeat indicator
+
+**คำถามทบทวน:** เมื่อ port หลุดควรตั้งข้อความ STOPPED ทันทีไหม?
+
+**แนวตอบ:** ไม่ ให้ UNKNOWN/link lost จนมีหลักฐาน Firmware watchdog เป็นผู้สั่งหยุดโดยไม่พึ่ง GUI
+
+## Checklist ก่อนจบ
+
+- เปิด GUI/reconnect แล้วไม่มี MOTOR command อัตโนมัติ
+- slider backlog ไม่ขวาง STOP
+- ปิดโปรแกรมหรือ mock link loss แล้วไม่แสดง false stopped
+- บนบอร์ดจริงพิสูจน์ watchdog ด้วยการหยุด heartbeatและวัด output
+

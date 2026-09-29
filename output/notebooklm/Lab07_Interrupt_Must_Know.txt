@@ -1,0 +1,219 @@
+# Lab07_Interrupt: สิ่งที่ต้องรู้ — STM32F410RB + CubeMX + Python Tkinter
+
+เอกสารสรุปเพื่อเรียนและทบทวน ไม่ใช่รายงานผลทดลอง โค้ดเป็นตัวอย่างต้องปรับให้ตรงบอร์ด ยังไม่มีผล hardware test
+
+## ส่วนที่ 1 ความรู้ฝั่ง STM32
+
+# Lab07_Interrupt: Interrupt และ Event
+
+## เป้าหมายและพื้นฐาน
+
+**เป้าหมาย:** ให้ CPU รับเหตุการณ์โดยไม่ต้องวนรออย่างต่อเนื่อง
+
+EXTI จัดการขอบสัญญาณภายนอก ส่วน NVIC จัดการ interrupt ที่ส่งเข้า core ต้องตั้งทั้งแหล่งเหตุการณ์ เส้นทาง mapping mask/trigger และ NVIC ตามชนิด interrupt ISR ควรทำงานสั้น เช่น เก็บเวลา/เพิ่ม counter/ตั้ง flag แล้วให้ main จัดการงานแสดงผล
+
+**ขั้นตอน:** เริ่ม timer interrupt → ตรวจชื่อ handler ใน startup → เปิด peripheral interrupt และ NVIC → เคลียร์ pending ตามคู่มือ → เพิ่ม EXTI button → debounce ใน main
+
+**ตรวจผล:** ให้ LED ทำงานตามเวลาและกดปุ่มพร้อมกัน ต้องไม่มี delay ยาวใน ISR และไม่มี interrupt วนซ้ำจาก pending ที่ไม่ถูกเคลียร์ ถ้าใช้ flag เดียวให้ระบุว่าอาจรวมหลาย event เป็นหนึ่ง หากต้องนับครบให้ใช้ counter/queue และป้องกัน race ตอนอ่านหรือรีเซ็ต
+
+**คำถาม:** volatile ทำให้ `count++` ปลอดภัยจากทุก race หรือไม่? ไม่ เพราะเป็นหลายขั้นตอน
+
+**อ่าน:** RM0401 บท 9; หนังสือบท 7
+
+## ตั้งค่า STM32CubeMX
+
+ใช้ timer จาก Lab06 เปิด NVIC timer interrupt ที่ตรง instance และตรวจ generated handler เรียก HAL_TIM_IRQHandler; สำหรับ EXTI เพิ่ม GPIO_EXTI ตาม edge/pull จริงและเลือก NVIC IRQ ที่ครอบคลุม pin
+
+ใช้ MCU STM32F410RB ที่ตรง package ของบอร์ด บันทึก `.ioc`, CubeMX/firmware package version และเลือก toolchain ที่ติดตั้งจริง ก่อน generate ให้เก็บ USER CODE และตรวจ diff หลัง generate ชื่อ handle ในตัวอย่างเป็นตัวอย่าง ต้องเทียบกับไฟล์ที่ CubeMX สร้าง
+
+## เชื่อมกับรีจิสเตอร์
+
+TIM DIER.UIE เปิด update interrupt; SR.UIF pending; NVIC enable/priority; EXTI/SYSCFG route และ edge สำหรับขาภายนอก
+
+## ลงมือทีละขั้น
+
+1. ตรวจ generated IRQ handler และ breakpoint ใน callback ชั่วคราว
+2. ISR เพิ่ม counter อย่างเดียว ไม่ส่ง UART/วาด OLED
+3. main อ่าน snapshot ของ aligned uint32_t ที่ ISR เป็นผู้เขียนคนเดียว และส่งอัตราจำกัด
+4. ถ้าต้อง reset/read-modify-write counter ให้ทำ critical section ที่เก็บคืน interrupt mask เดิม
+5. เพิ่ม EXTI แล้วนำ edge ไป debounce ใน main ไม่ใช้ HAL_Delay ใน ISR
+
+## Pseudocode
+
+hardware event → pending → NVIC → IRQ handler → HAL dispatcher → callback สั้น → main consume snapshot/event
+
+## ตัวอย่างแกนหลักและตำแหน่งเพิ่ม
+
+ตัวอย่างประกอบแนวคิด ไม่ใช่ firmware เต็มหรือโปรเจกต์พร้อม flash ให้เพิ่มใน USER CODE ตามที่ระบุหรือไฟล์ application แยกหลัง generated init ห้ามคัด main ทับทั้งไฟล์ ยังไม่ได้ build กับ `.ioc` หรือทดสอบบอร์ดจริง
+
+```c
+/* USER CODE BEGIN PV */
+static volatile uint32_t irq_count = 0;
+/* USER CODE BEGIN 4: do not duplicate an existing callback */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM5) { ++irq_count; }
+}
+/* USER CODE BEGIN 2 */
+if (HAL_TIM_Base_Start_IT(&htim5) != HAL_OK) { Error_Handler(); }
+/* Main may snapshot irq_count; do not reset it concurrently. */
+```
+
+## ทดสอบและเกณฑ์ผ่าน
+
+- เพิ่มจำนวน IRQ ได้แม้ main มีงานอื่นระยะสั้น
+- ไม่เกิด IRQ loop จาก pending ที่ไม่เคลียร์
+- counter wrap หรือ snapshot race มีวิธีจัดการที่อธิบายได้
+
+ทุกข้อข้างต้นต้องมี expected/actual และเครื่องมือที่ใช้ หากไม่มีเครื่องมือวัดเวลาให้ระบุข้อจำกัดแทนการสรุปความแม่นยำ
+
+## Debug จากอาการ
+
+callback ไม่เข้า: NVIC/DIER/handler; ค้าง ISR: delay/printf; count หาย: reset แข่งกับ ISR
+
+## ต่อกับ Python GUI
+
+คู่บทคือ Tkinter Lab07_Interrupt (เอกสารประกอบในหลักสูตร) ใช้ protocol (เอกสารประกอบในหลักสูตร) ที่ออกแบบสำหรับหลักสูตรนี้ ต้องเพิ่ม UART/parser หลัง Lab03 ก่อนเชื่อมจริง; GUI เรียน mock ก่อนได้
+
+## สรุปท้าย Lab
+
+Interrupt แยกการรับเหตุการณ์จากงานหลัก ISR ที่สั้นช่วยจำกัด latency แต่ข้อมูลร่วมยังต้องออกแบบ ownership
+
+งานส่ง: `.ioc`, source ที่เพิ่ม, pin map, clock calculation, ตาราง expected/actual และคำอธิบายรีจิสเตอร์ อ่าน summary.md (เอกสารประกอบในหลักสูตร) เพื่อทบทวนและกรอกผลจริง
+
+
+## ส่วนที่ 2 ความรู้ฝั่ง Python GUI
+
+# Lab07_Interrupt — Python Tkinter
+
+## เป้าหมาย
+
+แสดง interrupt counters และ event stream โดยไม่ redraw จน UI ค้าง
+
+เรียนพื้นฐาน Python/Tkinter จาก roadmap ก่อน บทก่อน Lab03 ใช้ mock; การเชื่อมบอร์ดจริงทุกบทต้องผ่าน Lab03 GUI และ Lab03 firmware รวมทั้ง HELLO/PING ตาม protocol.md (เอกสารประกอบในหลักสูตร)
+
+## แนวคิดที่ใช้
+
+จำนวน interrupt จำนวน telemetry frame และจำนวนแถวบนจอเป็นคนละสิ่ง ต้องแยก counters และจำกัดคิว
+
+Widgets: Treeview event log, counter, dropped-frame label, Clear View
+
+แยก requested, pending และ confirmed ตามความจำเป็น ใช้ StringVar/IntVar เป็นค่าของ view; protocol parser ตรวจข้อมูลก่อนให้ application state อัปเดต GUI
+
+## ขั้นตอนปฏิบัติ
+
+1. mock burst telemetry 1000 frame แล้วให้ UI drain ครั้งละจำกัด
+2. เก็บ Treeview ไม่เกิน 500 rows และ queue มีขอบเขต
+3. Clear View ล้างเฉพาะจอ ไม่ส่ง reset counter ถ้า protocol ไม่มีคำสั่ง
+4. แสดง irq_count สะสมกับจำนวน frame ที่รับแยกกัน
+5. ตรวจ missing seq และนับ dropped ไม่แต่ง event ขึ้นมา
+
+## ตัวอย่างแกนหลัก
+
+Snippet เพื่อใช้ระหว่างเรียน ไม่ใช่แอปเต็ม ชื่อ widget/state เช่น root/status และฟังก์ชัน application ที่เรียกต้องสร้างในขั้นตอนก่อนหน้า ในบทนี้ให้ Antigravity ช่วยเติมทีละส่วนและอธิบายเหตุผล
+
+```python
+MAX_ROWS = 500
+def append_event(values):
+    tree.insert("", "end", values=values)
+    rows = tree.get_children()
+    if len(rows) > MAX_ROWS:
+        tree.delete(*rows[:len(rows) - MAX_ROWS])
+
+```
+
+ให้ main thread เป็นผู้เรียกโค้ดที่เปลี่ยน widget ใช้ worker เฉพาะ transport; ห้ามเรียก serial read แบบรอไม่จำกัดจาก button callback Mock ต้องคืน response ตามคำสั่งและ session/id จริง ไม่เปลี่ยน GUI ให้ success โดยข้าม parser
+
+## กรณีทดสอบ
+
+- burst แล้วปุ่ม/ปิดหน้าต่างยังตอบสนอง
+- Clear View ไม่ทำให้ MCU counter เป็นศูนย์
+- frame drop แสดงตัวนับและค่าล่าสุดได้
+
+ทดสอบเพิ่มทุกบท: ปิดหน้าต่างขณะมี pending, ส่งข้อมูลผิดชนิด, reconnect และยืนยันว่าไม่มี callback/worker เก่ามาแก้ state ของ session ใหม่
+
+## แบบฝึกหัด
+
+ถ้า irq_count เพิ่ม 100 แต่ GUI รับ 10 frame แปลว่าหาย 90 interrupt หรือไม่?
+
+แนวตอบ: ไม่จำเป็น firmware อาจรายงาน counter แบบ batch ต้องดู protocol/seq และความถี่ publish
+
+## งานส่งและการประเมิน
+
+ส่งโค้ด Python พร้อมวิธีรัน, ภาพหน้าจอ mock/serial ที่แยกชัด, ตัวอย่าง frame ที่รับส่ง และตารางทดสอบ ไม่ใช้ mock เป็นหลักฐานฮาร์ดแวร์
+
+เกณฑ์: อธิบาย flow 2 คะแนน, UI/state 2, function ตามโจทย์ 3, edge cases 2, สรุป 1; ผ่านอย่างน้อย 8/10 และกรณีทดสอบหลักครบ
+
+## สรุปท้าย Lab
+
+จำนวน interrupt จำนวน telemetry frame และจำนวนแถวบนจอเป็นคนละสิ่ง ต้องแยก counters และจำกัดคิว
+
+อ่าน summary.md (เอกสารประกอบในหลักสูตร) แล้วให้ผู้เรียนอธิบายด้วยตนเองก่อนกรอกผลจริง คู่บท MCU: บทเรียน STM32 (เอกสารประกอบในหลักสูตร)
+
+
+## ส่วนที่ 3 สรุปก่อนสอบและก่อนลงมือ
+
+# สรุป Lab07_Interrupt — STM32
+
+## ความรู้ที่ต้องจำ
+
+Interrupt แยกการรับเหตุการณ์จากงานหลัก ISR ที่สั้นช่วยจำกัด latency แต่ข้อมูลร่วมยังต้องออกแบบ ownership
+
+**CubeMX:** ใช้ timer จาก Lab06 เปิด NVIC timer interrupt ที่ตรง instance และตรวจ generated handler เรียก HAL_TIM_IRQHandler; สำหรับ EXTI เพิ่ม GPIO_EXTI ตาม edge/pull จริงและเลือก NVIC IRQ ที่ครอบคลุม pin
+
+**รีจิสเตอร์สำคัญ:** TIM DIER.UIE เปิด update interrupt; SR.UIF pending; NVIC enable/priority; EXTI/SYSCFG route และ edge สำหรับขาภายนอก
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** callback ไม่เข้า: NVIC/DIER/handler; ค้าง ISR: delay/printf; count หาย: reset แข่งกับ ISR
+
+## ก่อนถือว่าจบ Lab
+
+- เพิ่มจำนวน IRQ ได้แม้ main มีงานอื่นระยะสั้น
+- ไม่เกิด IRQ loop จาก pending ที่ไม่เคลียร์
+- counter wrap หรือ snapshot race มีวิธีจัดการที่อธิบายได้
+
+## ผลการเรียนจริง
+
+สถานะ: ยังไม่ได้ทดลอง — สรุปความรู้นี้ไม่ใช่รายงานผลทดสอบ
+
+- วันที่ / รุ่นบอร์ด / toolchain:
+- ค่าที่ตั้งและเหตุผล:
+- หลักฐานและผล expected เทียบ actual:
+- ปัญหาที่พบและวิธีแก้:
+- สิ่งที่ยังไม่เข้าใจ:
+- ผ่านเกณฑ์ข้อใดแล้ว / ขั้นถัดไป:
+
+กลับบทเรียน (เอกสารประกอบในหลักสูตร)
+
+
+# สรุป Lab07_Interrupt — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+แสดง interrupt counters และ event stream โดยไม่ redraw จน UI ค้าง
+
+จำนวน interrupt จำนวน telemetry frame และจำนวนแถวบนจอเป็นคนละสิ่ง ต้องแยก counters และจำกัดคิว
+
+**Widgets/เครื่องมือ:** Treeview event log, counter, dropped-frame label, Clear View
+
+**คำถามทบทวน:** ถ้า irq_count เพิ่ม 100 แต่ GUI รับ 10 frame แปลว่าหาย 90 interrupt หรือไม่?
+
+**แนวตอบ:** ไม่จำเป็น firmware อาจรายงาน counter แบบ batch ต้องดู protocol/seq และความถี่ publish
+
+## Checklist ก่อนจบ
+
+- burst แล้วปุ่ม/ปิดหน้าต่างยังตอบสนอง
+- Clear View ไม่ทำให้ MCU counter เป็นศูนย์
+- frame drop แสดงตัวนับและค่าล่าสุดได้
+
+## บันทึกหลังลงมือจริง
+
+สถานะ: ยังไม่ได้ทดลอง ไม่มีการรับรองว่า GUI หรือบอร์ดผ่านการทดสอบแล้ว
+
+- วันที่ / Python version / pySerial version:
+- สิ่งที่เขียนและเข้าใจด้วยตนเอง:
+- ผล mock พร้อมหลักฐาน:
+- ผล Serial/บอร์ดจริง หรือระบุยังไม่ทดสอบ:
+- กรณีผิดพลาดที่ทดสอบ:
+- ปัญหาคงค้าง / วิธีแก้ / ขั้นถัดไป:
+
+กลับบทเรียน (เอกสารประกอบในหลักสูตร)

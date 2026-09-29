@@ -1,0 +1,218 @@
+# Lab01_LED: สิ่งที่ต้องรู้ — STM32F410RB + CubeMX + Python Tkinter
+
+เอกสารสรุปเพื่อเรียนและทบทวน ไม่ใช่รายงานผลทดลอง โค้ดเป็นตัวอย่างต้องปรับให้ตรงบอร์ด ยังไม่มีผล hardware test
+
+## ส่วนที่ 1 ความรู้ฝั่ง STM32
+
+# Lab01_LED: LED และ SysTick
+
+## เป้าหมายและพื้นฐาน
+
+**เป้าหมาย:** ตั้ง GPIO output และสร้างช่วงเวลาจาก clock ที่ทราบค่า
+
+GPIO output ต้องระบุ mode, output type, speed และ pull ขา PA5 ใช้ field MODER[11:10] เพราะแต่ละขาใช้ 2 บิต ส่วน ODR/IDR ใช้หนึ่งบิตต่อขา Output speed ควบคุมลักษณะขอบสัญญาณ ไม่ใช่ความถี่กระพริบ
+
+SysTick เป็นตัวนับถอยหลัง 24 บิต ถ้า clock 16 MHz ต้องใช้ 16,000 clock ต่อ 1 ms ดังนั้น LOAD=15,999 การสลับ LED ทุก 500 ms ทำให้หนึ่งรอบติดและดับใช้ประมาณ 1 วินาที
+
+**ขั้นตอน:** ตรวจวงจร LED → เปิด clock GPIO → ตั้ง output → ทดสอบติด/ดับ → เพิ่ม SysTick → เปลี่ยนช่วง 100/500/1000 ms
+
+**ตรวจผล:** ดู MODER/ODR ใน debugger และวัดคาบด้วยเครื่องมือถ้ามี การมองด้วยตาบอกได้เพียงทำงานคร่าว ๆ ไม่ใช่หลักฐานความแม่นยำระดับ ms
+
+**คำถาม:** ถ้า SysTick ใช้ 8 MHz ค่า LOAD ต่อ 1 ms เท่าไร? เฉลย 7,999
+
+**อ่าน:** RM0401 §5.3.8 และ §6.4; หนังสือบท 6 และ §11.4 ตัวอย่างเต็มอยู่ใน LAB01_LED_SYSTICK.md
+
+## ตั้งค่า STM32CubeMX
+
+เลือกขา LED ที่ตรวจแล้วเป็น GPIO_Output และ User Label เป็น LED; Output Push Pull, No Pull, Low speed; กำหนด initial level ตาม polarity เพื่อให้เริ่มดับ ตั้ง SYS Debug เป็น Serial Wire เพื่อคงขา debug ไว้ ตรวจ clock และคง HAL timebase เดิม
+
+ใช้ MCU STM32F410RB ที่ตรง package ของบอร์ด บันทึก `.ioc`, CubeMX/firmware package version และเลือก toolchain ที่ติดตั้งจริง ก่อน generate ให้เก็บ USER CODE และตรวจ diff หลัง generate ชื่อ handle ในตัวอย่างเป็นตัวอย่าง ต้องเทียบกับไฟล์ที่ CubeMX สร้าง
+
+## เชื่อมกับรีจิสเตอร์
+
+RCC AHB1ENR เปิด GPIO clock; MODER เลือก output; OTYPER/PUPDR/OSPEEDR กำหนดลักษณะขา; ODR/BSRR เขียนค่า output
+
+## ลงมือทีละขั้น
+
+1. สร้างโปรเจกต์ CubeMX ตั้ง LED label และ Generate จากนั้น build โปรแกรมเดิมให้ผ่านก่อนเพิ่มโค้ด
+2. เพิ่มตัวแปรและโค้ดตามตำแหน่ง USER CODE ที่ระบุ ตรวจ LED สลับทุกประมาณ 500 ms
+3. เปลี่ยนเป็น 100 และ 1000 ms บันทึกคาบเต็มซึ่งเป็นสองเท่าของช่วง toggle
+4. อ่านค่า register หลัง MX_GPIO_Init และอธิบายเทียบกับค่าที่ตั้งใน CubeMX
+5. เมื่อผ่าน HAL แล้วค่อยทำบท SysTick polling แยกตาม LAB01_LED_SYSTICK.md
+
+## Pseudocode
+
+init GPIO/timebase → จำเวลา → วนอ่านเวลา → ถ้าครบ interval ให้ toggle และจำเวลาใหม่ → ทำงานอื่นต่อ
+
+## ตัวอย่างแกนหลักและตำแหน่งเพิ่ม
+
+ตัวอย่างประกอบแนวคิด ไม่ใช่ firmware เต็มหรือโปรเจกต์พร้อม flash ให้เพิ่มใน USER CODE ตามที่ระบุหรือไฟล์ application แยกหลัง generated init ห้ามคัด main ทับทั้งไฟล์ ยังไม่ได้ build กับ `.ioc` หรือทดสอบบอร์ดจริง
+
+```c
+/* USER CODE BEGIN 2: after generated initialization */
+uint32_t last_led = HAL_GetTick();
+/* USER CODE BEGIN 3: inside while (1) */
+uint32_t now = HAL_GetTick();
+if ((uint32_t)(now - last_led) >= 500U) {
+    last_led = now;
+    HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+}
+```
+
+## ทดสอบและเกณฑ์ผ่าน
+
+- เริ่มต้นขาตรงกับ initial level ที่ตั้งและ LED ไม่กลับ polarity ผิด
+- 100/500/1000 ms ให้คาบประมาณ 200/1000/2000 ms โดยระบุเครื่องมือและความคลาดเคลื่อน
+- เพิ่มการอ่านปุ่มหรือ counter ใน main แล้วไม่ติดค้างจาก delay
+
+ทุกข้อข้างต้นต้องมี expected/actual และเครื่องมือที่ใช้ หากไม่มีเครื่องมือวัดเวลาให้ระบุข้อจำกัดแทนการสรุปความแม่นยำ
+
+## Debug จากอาการ
+
+LED ไม่ติด: ตรวจขา/polarity/clock; เวลาเพี้ยน: ตรวจ clock/timebase; regenerate แล้วโค้ดหาย: ตรวจ USER CODE blocks
+
+## ต่อกับ Python GUI
+
+คู่บทคือ Tkinter Lab01_LED (เอกสารประกอบในหลักสูตร) ใช้ protocol (เอกสารประกอบในหลักสูตร) ที่ออกแบบสำหรับหลักสูตรนี้ ต้องเพิ่ม UART/parser หลัง Lab03 ก่อนเชื่อมจริง; GUI เรียน mock ก่อนได้
+
+## สรุปท้าย Lab
+
+GPIO กำหนดระดับขา ส่วน timebase กำหนดเวลา การใช้ elapsed time ทำให้ main ทำงานอื่นได้ BSRR ใช้ set/reset เฉพาะบิต ส่วน toggle ต้องระวังผู้เขียนขาร่วมกัน
+
+งานส่ง: `.ioc`, source ที่เพิ่ม, pin map, clock calculation, ตาราง expected/actual และคำอธิบายรีจิสเตอร์ อ่าน summary.md (เอกสารประกอบในหลักสูตร) เพื่อทบทวนและกรอกผลจริง
+
+
+## ส่วนที่ 2 ความรู้ฝั่ง Python GUI
+
+# Lab01_LED — Python Tkinter
+
+## เป้าหมาย
+
+สร้างหน้าต่างควบคุม LED แบบ mock และแยกค่าที่ขอออกจากค่าที่อุปกรณ์ยืนยัน
+
+เรียนพื้นฐาน Python/Tkinter จาก roadmap ก่อน บทก่อน Lab03 ใช้ mock; การเชื่อมบอร์ดจริงทุกบทต้องผ่าน Lab03 GUI และ Lab03 firmware รวมทั้ง HELLO/PING ตาม protocol.md (เอกสารประกอบในหลักสูตร)
+
+## แนวคิดที่ใช้
+
+Tkinter callback สร้างคำสั่ง ส่วน ACK ยืนยัน state การเปลี่ยนสีปุ่มอย่างเดียวไม่พิสูจน์ว่า LED บนบอร์ดติด
+
+Widgets: ttk.Frame, Label, Button, StringVar และ Canvas วงกลมสถานะ
+
+แยก requested, pending และ confirmed ตามความจำเป็น ใช้ StringVar/IntVar เป็นค่าของ view; protocol parser ตรวจข้อมูลก่อนให้ application state อัปเดต GUI
+
+## ขั้นตอนปฏิบัติ
+
+1. วาดปุ่ม ON/OFF และป้าย MOCK, DISCONNECTED, confirmed=UNKNOWN
+2. สร้าง callback ที่สร้าง CMD LED แล้วตั้ง pending โดยไม่แก้ confirmed ทันที
+3. mock transport รับคำสั่งแล้วใช้ after จำลอง ACK หลัง 100 ms; ใช้ session/id ตาม protocol
+4. เมื่อ ACK ตรง id จึงเปลี่ยนวงกลมและ confirmed; ถ้า timeout ให้ UNKNOWN
+5. หลัง Lab03 เปลี่ยน transport เป็น Serial โดยไม่เปลี่ยน view
+
+## ตัวอย่างแกนหลัก
+
+Snippet เพื่อใช้ระหว่างเรียน ไม่ใช่แอปเต็ม ชื่อ widget/state เช่น root/status และฟังก์ชัน application ที่เรียกต้องสร้างในขั้นตอนก่อนหน้า ในบทนี้ให้ Antigravity ช่วยเติมทีละส่วนและอธิบายเหตุผล
+
+```python
+pending_id = 2
+status.set("กำลังรอยืนยัน")
+# Call from a main-thread event handler after parsing a matching ACK:
+def show_led_ack(value):
+    confirmed.set("ON" if value == 1 else "OFF")
+    status.set("ยืนยันแล้ว")
+```
+
+ให้ main thread เป็นผู้เรียกโค้ดที่เปลี่ยน widget ใช้ worker เฉพาะ transport; ห้ามเรียก serial read แบบรอไม่จำกัดจาก button callback Mock ต้องคืน response ตามคำสั่งและ session/id จริง ไม่เปลี่ยน GUI ให้ success โดยข้าม parser
+
+## กรณีทดสอบ
+
+- กด ON ได้ pending ก่อน confirmed ON
+- mock ไม่ตอบต้องขึ้น timeout ไม่ขึ้นสำเร็จ
+- ACK id เก่าไม่เปลี่ยนสถานะคำสั่งปัจจุบัน
+
+ทดสอบเพิ่มทุกบท: ปิดหน้าต่างขณะมี pending, ส่งข้อมูลผิดชนิด, reconnect และยืนยันว่าไม่มี callback/worker เก่ามาแก้ state ของ session ใหม่
+
+## แบบฝึกหัด
+
+ถ้าได้รับ ACK ของคำสั่ง OFF หลังคำสั่ง ON ล่าสุดควรทำอย่างไร?
+
+แนวตอบ: เทียบ session/id กับ pending และไม่ใช้ ACK เก่าอัปเดตคำสั่งล่าสุด
+
+## งานส่งและการประเมิน
+
+ส่งโค้ด Python พร้อมวิธีรัน, ภาพหน้าจอ mock/serial ที่แยกชัด, ตัวอย่าง frame ที่รับส่ง และตารางทดสอบ ไม่ใช้ mock เป็นหลักฐานฮาร์ดแวร์
+
+เกณฑ์: อธิบาย flow 2 คะแนน, UI/state 2, function ตามโจทย์ 3, edge cases 2, สรุป 1; ผ่านอย่างน้อย 8/10 และกรณีทดสอบหลักครบ
+
+## สรุปท้าย Lab
+
+Tkinter callback สร้างคำสั่ง ส่วน ACK ยืนยัน state การเปลี่ยนสีปุ่มอย่างเดียวไม่พิสูจน์ว่า LED บนบอร์ดติด
+
+อ่าน summary.md (เอกสารประกอบในหลักสูตร) แล้วให้ผู้เรียนอธิบายด้วยตนเองก่อนกรอกผลจริง คู่บท MCU: บทเรียน STM32 (เอกสารประกอบในหลักสูตร)
+
+
+## ส่วนที่ 3 สรุปก่อนสอบและก่อนลงมือ
+
+# สรุป Lab01_LED — STM32
+
+## ความรู้ที่ต้องจำ
+
+GPIO กำหนดระดับขา ส่วน timebase กำหนดเวลา การใช้ elapsed time ทำให้ main ทำงานอื่นได้ BSRR ใช้ set/reset เฉพาะบิต ส่วน toggle ต้องระวังผู้เขียนขาร่วมกัน
+
+**CubeMX:** เลือกขา LED ที่ตรวจแล้วเป็น GPIO_Output และ User Label เป็น LED; Output Push Pull, No Pull, Low speed; กำหนด initial level ตาม polarity เพื่อให้เริ่มดับ ตั้ง SYS Debug เป็น Serial Wire เพื่อคงขา debug ไว้ ตรวจ clock และคง HAL timebase เดิม
+
+**รีจิสเตอร์สำคัญ:** RCC AHB1ENR เปิด GPIO clock; MODER เลือก output; OTYPER/PUPDR/OSPEEDR กำหนดลักษณะขา; ODR/BSRR เขียนค่า output
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** LED ไม่ติด: ตรวจขา/polarity/clock; เวลาเพี้ยน: ตรวจ clock/timebase; regenerate แล้วโค้ดหาย: ตรวจ USER CODE blocks
+
+## ก่อนถือว่าจบ Lab
+
+- เริ่มต้นขาตรงกับ initial level ที่ตั้งและ LED ไม่กลับ polarity ผิด
+- 100/500/1000 ms ให้คาบประมาณ 200/1000/2000 ms โดยระบุเครื่องมือและความคลาดเคลื่อน
+- เพิ่มการอ่านปุ่มหรือ counter ใน main แล้วไม่ติดค้างจาก delay
+
+## ผลการเรียนจริง
+
+สถานะ: ยังไม่ได้ทดลอง — สรุปความรู้นี้ไม่ใช่รายงานผลทดสอบ
+
+- วันที่ / รุ่นบอร์ด / toolchain:
+- ค่าที่ตั้งและเหตุผล:
+- หลักฐานและผล expected เทียบ actual:
+- ปัญหาที่พบและวิธีแก้:
+- สิ่งที่ยังไม่เข้าใจ:
+- ผ่านเกณฑ์ข้อใดแล้ว / ขั้นถัดไป:
+
+กลับบทเรียน (เอกสารประกอบในหลักสูตร)
+
+
+# สรุป Lab01_LED — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+สร้างหน้าต่างควบคุม LED แบบ mock และแยกค่าที่ขอออกจากค่าที่อุปกรณ์ยืนยัน
+
+Tkinter callback สร้างคำสั่ง ส่วน ACK ยืนยัน state การเปลี่ยนสีปุ่มอย่างเดียวไม่พิสูจน์ว่า LED บนบอร์ดติด
+
+**Widgets/เครื่องมือ:** ttk.Frame, Label, Button, StringVar และ Canvas วงกลมสถานะ
+
+**คำถามทบทวน:** ถ้าได้รับ ACK ของคำสั่ง OFF หลังคำสั่ง ON ล่าสุดควรทำอย่างไร?
+
+**แนวตอบ:** เทียบ session/id กับ pending และไม่ใช้ ACK เก่าอัปเดตคำสั่งล่าสุด
+
+## Checklist ก่อนจบ
+
+- กด ON ได้ pending ก่อน confirmed ON
+- mock ไม่ตอบต้องขึ้น timeout ไม่ขึ้นสำเร็จ
+- ACK id เก่าไม่เปลี่ยนสถานะคำสั่งปัจจุบัน
+
+## บันทึกหลังลงมือจริง
+
+สถานะ: ยังไม่ได้ทดลอง ไม่มีการรับรองว่า GUI หรือบอร์ดผ่านการทดสอบแล้ว
+
+- วันที่ / Python version / pySerial version:
+- สิ่งที่เขียนและเข้าใจด้วยตนเอง:
+- ผล mock พร้อมหลักฐาน:
+- ผล Serial/บอร์ดจริง หรือระบุยังไม่ทดสอบ:
+- กรณีผิดพลาดที่ทดสอบ:
+- ปัญหาคงค้าง / วิธีแก้ / ขั้นถัดไป:
+
+กลับบทเรียน (เอกสารประกอบในหลักสูตร)

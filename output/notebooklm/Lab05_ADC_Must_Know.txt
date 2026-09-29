@@ -1,0 +1,220 @@
+# Lab05_ADC: สิ่งที่ต้องรู้ — STM32F410RB + CubeMX + Python Tkinter
+
+เอกสารสรุปเพื่อเรียนและทบทวน ไม่ใช่รายงานผลทดลอง โค้ดเป็นตัวอย่างต้องปรับให้ตรงบอร์ด ยังไม่มีผล hardware test
+
+## ส่วนที่ 1 ความรู้ฝั่ง STM32
+
+# Lab05_ADC: ADC วัดแรงดัน
+
+## เป้าหมายและพื้นฐาน
+
+**เป้าหมาย:** เปลี่ยนค่าดิจิทัลเป็นค่าประมาณแรงดันพร้อมอธิบายความคลาดเคลื่อน
+
+ADC 12 บิตให้ raw 0–4095 การประมาณแรงดันทั่วไปคือ `V≈raw×VREF/4095` ต้องใช้ VREF ที่ทราบหรือวัดได้ Sampling time และความต้านทานของแหล่งสัญญาณมีผลต่อการอ่าน
+
+**ขั้นตอน:** เลือกขา ADC/channel ที่มีจริง → ตั้ง analog mode → ตรวจ ADC clock และ sampling time → อ่าน single conversion → ส่ง raw ทาง UART → แปลงแรงดัน → ลองเฉลี่ย 16 ตัวอย่าง
+
+**ตรวจผล:** ทดลองแรงดันใกล้ GND กลางช่วง และใกล้ VREF ภายในช่วงอินพุตที่อนุญาต เทียบมัลติมิเตอร์ บันทึก min/max ก่อนและหลังเฉลี่ย การเฉลี่ยลด noise บางชนิดแต่ไม่แก้ VREF ผิด
+
+**คำถาม:** raw=2048 และ VREF=3.3 V ได้เท่าไร? ประมาณ 1.6504 V
+
+**อ่าน:** RM0401 บท 11; หนังสือบท 12; Datasheet electrical/ADC characteristics
+
+## ตั้งค่า STM32CubeMX
+
+เลือก ADC1 channel ที่ตรง analog pin ตั้ง 12-bit, right alignment, single conversion, software trigger และ sampling time เหมาะกับ source impedance ตรวจ ADC clock limit ใน datasheet ตั้ง GPIO analog/no pull
+
+ใช้ MCU STM32F410RB ที่ตรง package ของบอร์ด บันทึก `.ioc`, CubeMX/firmware package version และเลือก toolchain ที่ติดตั้งจริง ก่อน generate ให้เก็บ USER CODE และตรวจ diff หลัง generate ชื่อ handle ในตัวอย่างเป็นตัวอย่าง ต้องเทียบกับไฟล์ที่ CubeMX สร้าง
+
+## เชื่อมกับรีจิสเตอร์
+
+ADC CR1/CR2 เลือก mode/start; SMPR เลือก sampling time; SQR เลือกลำดับ channel; SR/DR แสดงสถานะ/ผล
+
+## ลงมือทีละขั้น
+
+1. วัด VREF/ไฟ analog และตรวจขอบเขตแรงดันก่อนต่อ potentiometer
+2. อ่าน raw ครั้งเดียวให้ผ่านก่อนเพิ่ม periodic sampling
+3. ส่ง raw/millivolts ไม่เกิน 10 Hz เพื่อเริ่มเชื่อม GUI
+4. เปรียบเทียบจุดต่ำ กลาง สูงกับมัลติมิเตอร์
+5. เพิ่ม moving average และเปรียบเทียบ noise กับ response lag
+
+## Pseudocode
+
+ครบ sample interval → start ADC → รอแบบมี timeout → ถ้าสำเร็จแปลงหน่วย → publish; ถ้าผิดส่ง error ไม่ใช้ raw เก่าเป็นผลใหม่
+
+## ตัวอย่างแกนหลักและตำแหน่งเพิ่ม
+
+ตัวอย่างประกอบแนวคิด ไม่ใช่ firmware เต็มหรือโปรเจกต์พร้อม flash ให้เพิ่มใน USER CODE ตามที่ระบุหรือไฟล์ application แยกหลัง generated init ห้ามคัด main ทับทั้งไฟล์ ยังไม่ได้ build กับ `.ioc` หรือทดสอบบอร์ดจริง
+
+```c
+/* In main/task context after ADC initialization; not ISR */
+uint32_t raw = 0;
+HAL_StatusTypeDef status = HAL_ADC_Start(&hadc1);
+if (status == HAL_OK) {
+    status = HAL_ADC_PollForConversion(&hadc1, 10U);
+    if (status == HAL_OK) { raw = HAL_ADC_GetValue(&hadc1); }
+    HAL_ADC_Stop(&hadc1);
+}
+/* Use raw only when status == HAL_OK.
+   millivolts = raw * measured_vref_mV / 4095U; */
+```
+
+## ทดสอบและเกณฑ์ผ่าน
+
+- raw อยู่ 0–4095; ค่ากลางประมาณครึ่ง full scale
+- timeout ไม่รายงาน raw=0 ว่าเป็นค่าที่วัดสำเร็จ
+- disconnect sensor แล้วไม่อ้างค่าที่ลอยเป็นแรงดันเชื่อถือได้
+
+ทุกข้อข้างต้นต้องมี expected/actual และเครื่องมือที่ใช้ หากไม่มีเครื่องมือวัดเวลาให้ระบุข้อจำกัดแทนการสรุปความแม่นยำ
+
+## Debug จากอาการ
+
+ค่านิ่ง 0: channel/pin/ground; noise: source/VREF/sample time; สเกลผิด: resolution/VREF
+
+## ต่อกับ Python GUI
+
+คู่บทคือ Tkinter Lab05_ADC (เอกสารประกอบในหลักสูตร) ใช้ protocol (เอกสารประกอบในหลักสูตร) ที่ออกแบบสำหรับหลักสูตรนี้ ต้องเพิ่ม UART/parser หลัง Lab03 ก่อนเชื่อมจริง; GUI เรียน mock ก่อนได้
+
+## สรุปท้าย Lab
+
+ADC ให้ค่าดิจิทัลเทียบ reference การแปลงเป็นโวลต์ต้องรู้ VREF และความคลาดเคลื่อน การเฉลี่ยไม่แก้ calibration ผิด
+
+งานส่ง: `.ioc`, source ที่เพิ่ม, pin map, clock calculation, ตาราง expected/actual และคำอธิบายรีจิสเตอร์ อ่าน summary.md (เอกสารประกอบในหลักสูตร) เพื่อทบทวนและกรอกผลจริง
+
+
+## ส่วนที่ 2 ความรู้ฝั่ง Python GUI
+
+# Lab05_ADC — Python Tkinter
+
+## เป้าหมาย
+
+แสดงตัวเลขและกราฟ bounded history พร้อม export CSV
+
+เรียนพื้นฐาน Python/Tkinter จาก roadmap ก่อน บทก่อน Lab03 ใช้ mock; การเชื่อมบอร์ดจริงทุกบทต้องผ่าน Lab03 GUI และ Lab03 firmware รวมทั้ง HELLO/PING ตาม protocol.md (เอกสารประกอบในหลักสูตร)
+
+## แนวคิดที่ใช้
+
+การเก็บ sample และวาดจอมีอัตราต่างกันได้ ต้องจำกัดหน่วยความจำและบันทึกหน่วย/ที่มาของข้อมูล
+
+Widgets: Label raw/mV, Canvas graph, Pause/Resume, Export button
+
+แยก requested, pending และ confirmed ตามความจำเป็น ใช้ StringVar/IntVar เป็นค่าของ view; protocol parser ตรวจข้อมูลก่อนให้ application state อัปเดต GUI
+
+## ขั้นตอนปฏิบัติ
+
+1. รับ ADC telemetry และ validate raw กับหน่วย
+2. เก็บข้อมูลไม่เกิน 600 samples ด้วย deque
+3. วาดกราฟด้วย Canvas ทุก 100 ms แยกจากความถี่รับข้อมูล
+4. Pause หยุดการแสดงผลตามนิยามที่ประกาศ ไม่อ้างว่าหยุด ADC บน MCU
+5. Export ด้วย csv module มี timestamp, raw, millivolts, mode และบันทึก VREF ที่ใช้
+
+## ตัวอย่างแกนหลัก
+
+Snippet เพื่อใช้ระหว่างเรียน ไม่ใช่แอปเต็ม ชื่อ widget/state เช่น root/status และฟังก์ชัน application ที่เรียกต้องสร้างในขั้นตอนก่อนหน้า ในบทนี้ให้ Antigravity ช่วยเติมทีละส่วนและอธิบายเหตุผล
+
+```python
+from collections import deque
+samples = deque(maxlen=600)
+def accept_adc(t_ms, raw, mv):
+    if not (0 <= raw <= 4095 and mv >= 0):
+        raise ValueError("invalid ADC")
+    samples.append((t_ms, raw, mv))
+# A separate root.after callback renders the latest samples.
+
+```
+
+ให้ main thread เป็นผู้เรียกโค้ดที่เปลี่ยน widget ใช้ worker เฉพาะ transport; ห้ามเรียก serial read แบบรอไม่จำกัดจาก button callback Mock ต้องคืน response ตามคำสั่งและ session/id จริง ไม่เปลี่ยน GUI ให้ success โดยข้าม parser
+
+## กรณีทดสอบ
+
+- raw=0/2048/4095 แสดงถูก ไม่หารด้วยศูนย์ตอนกราฟมี sample เดียว
+- รับ 10000 samples แล้ว history ไม่เกิน 600
+- export เปิดอ่านกลับแล้วจำนวนแถว/หน่วยตรง
+
+ทดสอบเพิ่มทุกบท: ปิดหน้าต่างขณะมี pending, ส่งข้อมูลผิดชนิด, reconnect และยืนยันว่าไม่มี callback/worker เก่ามาแก้ state ของ session ใหม่
+
+## แบบฝึกหัด
+
+ทำไมเวลา PC รับข้อมูลไม่เท่ากับเวลาที่ ADC sample?
+
+แนวตอบ: มีคิวและเวลาเดินทาง Serial ควรใช้ timestamp MCU เพื่อดูช่วง sampling และเก็บ received time แยก
+
+## งานส่งและการประเมิน
+
+ส่งโค้ด Python พร้อมวิธีรัน, ภาพหน้าจอ mock/serial ที่แยกชัด, ตัวอย่าง frame ที่รับส่ง และตารางทดสอบ ไม่ใช้ mock เป็นหลักฐานฮาร์ดแวร์
+
+เกณฑ์: อธิบาย flow 2 คะแนน, UI/state 2, function ตามโจทย์ 3, edge cases 2, สรุป 1; ผ่านอย่างน้อย 8/10 และกรณีทดสอบหลักครบ
+
+## สรุปท้าย Lab
+
+การเก็บ sample และวาดจอมีอัตราต่างกันได้ ต้องจำกัดหน่วยความจำและบันทึกหน่วย/ที่มาของข้อมูล
+
+อ่าน summary.md (เอกสารประกอบในหลักสูตร) แล้วให้ผู้เรียนอธิบายด้วยตนเองก่อนกรอกผลจริง คู่บท MCU: บทเรียน STM32 (เอกสารประกอบในหลักสูตร)
+
+
+## ส่วนที่ 3 สรุปก่อนสอบและก่อนลงมือ
+
+# สรุป Lab05_ADC — STM32
+
+## ความรู้ที่ต้องจำ
+
+ADC ให้ค่าดิจิทัลเทียบ reference การแปลงเป็นโวลต์ต้องรู้ VREF และความคลาดเคลื่อน การเฉลี่ยไม่แก้ calibration ผิด
+
+**CubeMX:** เลือก ADC1 channel ที่ตรง analog pin ตั้ง 12-bit, right alignment, single conversion, software trigger และ sampling time เหมาะกับ source impedance ตรวจ ADC clock limit ใน datasheet ตั้ง GPIO analog/no pull
+
+**รีจิสเตอร์สำคัญ:** ADC CR1/CR2 เลือก mode/start; SMPR เลือก sampling time; SQR เลือกลำดับ channel; SR/DR แสดงสถานะ/ผล
+
+**จุดผิดพลาดที่ต้องแยกให้ออก:** ค่านิ่ง 0: channel/pin/ground; noise: source/VREF/sample time; สเกลผิด: resolution/VREF
+
+## ก่อนถือว่าจบ Lab
+
+- raw อยู่ 0–4095; ค่ากลางประมาณครึ่ง full scale
+- timeout ไม่รายงาน raw=0 ว่าเป็นค่าที่วัดสำเร็จ
+- disconnect sensor แล้วไม่อ้างค่าที่ลอยเป็นแรงดันเชื่อถือได้
+
+## ผลการเรียนจริง
+
+สถานะ: ยังไม่ได้ทดลอง — สรุปความรู้นี้ไม่ใช่รายงานผลทดสอบ
+
+- วันที่ / รุ่นบอร์ด / toolchain:
+- ค่าที่ตั้งและเหตุผล:
+- หลักฐานและผล expected เทียบ actual:
+- ปัญหาที่พบและวิธีแก้:
+- สิ่งที่ยังไม่เข้าใจ:
+- ผ่านเกณฑ์ข้อใดแล้ว / ขั้นถัดไป:
+
+กลับบทเรียน (เอกสารประกอบในหลักสูตร)
+
+
+# สรุป Lab05_ADC — Tkinter
+
+## สิ่งที่เรียนและสิ่งที่สร้าง
+
+แสดงตัวเลขและกราฟ bounded history พร้อม export CSV
+
+การเก็บ sample และวาดจอมีอัตราต่างกันได้ ต้องจำกัดหน่วยความจำและบันทึกหน่วย/ที่มาของข้อมูล
+
+**Widgets/เครื่องมือ:** Label raw/mV, Canvas graph, Pause/Resume, Export button
+
+**คำถามทบทวน:** ทำไมเวลา PC รับข้อมูลไม่เท่ากับเวลาที่ ADC sample?
+
+**แนวตอบ:** มีคิวและเวลาเดินทาง Serial ควรใช้ timestamp MCU เพื่อดูช่วง sampling และเก็บ received time แยก
+
+## Checklist ก่อนจบ
+
+- raw=0/2048/4095 แสดงถูก ไม่หารด้วยศูนย์ตอนกราฟมี sample เดียว
+- รับ 10000 samples แล้ว history ไม่เกิน 600
+- export เปิดอ่านกลับแล้วจำนวนแถว/หน่วยตรง
+
+## บันทึกหลังลงมือจริง
+
+สถานะ: ยังไม่ได้ทดลอง ไม่มีการรับรองว่า GUI หรือบอร์ดผ่านการทดสอบแล้ว
+
+- วันที่ / Python version / pySerial version:
+- สิ่งที่เขียนและเข้าใจด้วยตนเอง:
+- ผล mock พร้อมหลักฐาน:
+- ผล Serial/บอร์ดจริง หรือระบุยังไม่ทดสอบ:
+- กรณีผิดพลาดที่ทดสอบ:
+- ปัญหาคงค้าง / วิธีแก้ / ขั้นถัดไป:
+
+กลับบทเรียน (เอกสารประกอบในหลักสูตร)
